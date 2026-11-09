@@ -122,8 +122,43 @@ function M.append(lines)
   end
   local n = vim.api.nvim_buf_line_count(s.tbuf)
   local empty = n == 1 and vim.api.nvim_buf_get_lines(s.tbuf, 0, 1, false)[1] == ""
-  vim.api.nvim_buf_set_lines(s.tbuf, empty and 0 or n, -1, false, lines)
+  local at = empty and 0 or n
+  if s.working_idx then
+    at = s.working_idx - 1
+  end
+  vim.api.nvim_buf_set_lines(s.tbuf, at, at, false, lines)
+  if s.working_idx then
+    s.working_idx = s.working_idx + #lines
+  end
   M.scroll()
+end
+
+---Show or replace the live status line at the end of the chat.
+---@param text string
+function M.set_working(text)
+  if not buf_ok(s.tbuf) then
+    return
+  end
+  local lines = vim.api.nvim_buf_get_lines(s.tbuf, 0, -1, false)
+  if s.working_idx and lines[s.working_idx] then
+    vim.api.nvim_buf_set_lines(s.tbuf, s.working_idx - 1, s.working_idx, false, { text })
+  else
+    vim.api.nvim_buf_set_lines(s.tbuf, -1, -1, false, { text })
+    s.working_idx = vim.api.nvim_buf_line_count(s.tbuf)
+  end
+  M.scroll()
+end
+
+function M.clear_working()
+  if not buf_ok(s.tbuf) or not s.working_idx then
+    s.working_idx = nil
+    return
+  end
+  local n = vim.api.nvim_buf_line_count(s.tbuf)
+  if s.working_idx <= n then
+    vim.api.nvim_buf_set_lines(s.tbuf, s.working_idx - 1, s.working_idx, false, {})
+  end
+  s.working_idx = nil
 end
 
 function M.set_status(text)
