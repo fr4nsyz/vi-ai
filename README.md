@@ -1,5 +1,8 @@
 # vi-ai
 
+<img width="1512" height="982" alt="image" src="https://github.com/user-attachments/assets/dccc1055-b69f-4177-b3b8-0038ce848b35" />
+
+
 Minimal-hint AI tutor for Neovim. You write the code; when stuck, ask. Replies start with the least help that unblocks you and go one level deeper per follow-up.
 
 Backend: `opencode run` (any provider opencode supports). Context sent per message: file, cursor, code around cursor or selection, diagnostics, open buffer names. The agent reads the rest of the repo with its own read-only tools.
