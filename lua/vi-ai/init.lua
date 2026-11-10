@@ -278,7 +278,7 @@ function M.toggle()
   remember_src()
   window.open()
   status()
-  window.focus_chat()
+  window.focus_input(false, true)
 end
 
 function M.last_user()
