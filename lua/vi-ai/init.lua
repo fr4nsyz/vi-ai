@@ -18,6 +18,7 @@ M.config = {
     mode = "<leader>ad",
     model = "<leader>am",
     new = "<leader>an",
+    last_user = "<leader>al",
   },
 }
 
@@ -197,7 +198,7 @@ function M.submit()
   local lines = { "## You " .. where, "" }
   vim.list_extend(lines, vim.split(text, "\n"))
   vim.list_extend(lines, { "", "## AI", "" })
-  window.append(lines)
+  window.append(lines, { user = true })
   start_working()
 
   st.root, st.key = r, k
@@ -277,7 +278,20 @@ function M.toggle()
   remember_src()
   window.open()
   status()
-  window.focus_input(true)
+  window.focus_chat()
+end
+
+function M.last_user()
+  remember_src()
+  if not window.is_open() then
+    window.open()
+    status()
+  end
+  if not window.goto_last_user() then
+    vim.notify("vi-ai: no user message yet", vim.log.levels.WARN)
+    return
+  end
+  window.focus_chat()
 end
 
 ---@param visual boolean
@@ -330,6 +344,7 @@ function M.setup(opts)
   vim.keymap.set("n", k.mode, M.toggle_mode, { desc = "vi-ai: toggle tutor/design" })
   vim.keymap.set("n", k.model, M.pick_model, { desc = "vi-ai: pick model" })
   vim.keymap.set("n", k.new, M.new_session, { desc = "vi-ai: new session" })
+  vim.keymap.set("n", k.last_user, M.last_user, { desc = "vi-ai: jump to last user message" })
 
   vim.api.nvim_create_user_command("ViAi", function(cmd)
     remember_src()

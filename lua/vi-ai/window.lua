@@ -1,6 +1,6 @@
 local M = {}
 
-local s = {}
+local s = { user_lines = {} }
 
 local function buf_ok(b)
   return b and vim.api.nvim_buf_is_valid(b)
@@ -34,6 +34,7 @@ end
 ---@param h {submit:fun(), cancel:fun(), width:integer}
 function M.setup(h)
   s.h = h
+  s.user_lines = {}
 end
 
 function M.owns(win)
@@ -49,6 +50,9 @@ function M.open()
     s.tbuf = scratch("vi-ai://chat")
     map(s.tbuf, "n", "q", M.close)
     map(s.tbuf, "n", "<C-c>", s.h.cancel)
+    map(s.tbuf, "n", "<C-j>", function()
+      M.focus_input(true)
+    end)
   end
   if not buf_ok(s.ibuf) then
     s.ibuf = scratch("vi-ai://input")
@@ -59,6 +63,9 @@ function M.open()
     end)
     map(s.ibuf, "n", "q", M.close)
     map(s.ibuf, { "n", "i" }, "<C-c>", s.h.cancel)
+    map(s.ibuf, "n", "<C-k>", function()
+      M.focus_chat()
+    end)
   end
   if M.is_open() then
     return
@@ -76,7 +83,7 @@ function M.open()
   vim.api.nvim_win_set_height(s.iwin, 5)
   style(s.iwin)
   vim.wo[s.iwin].winfixheight = true
-  vim.wo[s.iwin].winbar = "<CR> send  <C-s> send (insert)  <C-c> cancel  q close"
+  vim.wo[s.iwin].winbar = "<CR> send  <C-s> send (insert)  <C-c> cancel  <C-k> chat  q close"
 
   vim.api.nvim_create_autocmd("WinClosed", {
     pattern = { tostring(s.twin), tostring(s.iwin) },
@@ -109,17 +116,73 @@ function M.focus_input(insert)
   end
 end
 
+function M.focus_chat()
+  if win_ok(s.twin) then
+    vim.cmd("stopinsert")
+    vim.api.nvim_set_current_win(s.twin)
+  end
+end
+
+---True when the chat view still shows the newest line.
+---@return boolean
+local function at_bottom()
+  if not win_ok(s.twin) or not buf_ok(s.tbuf) then
+    return true
+  end
+  local last = vim.api.nvim_buf_line_count(s.tbuf)
+  local ok, bottom = pcall(vim.fn.line, "w$", s.twin)
+  if not ok or bottom == -1 then
+    return true
+  end
+  return bottom >= last
+end
+
 function M.scroll()
   if win_ok(s.twin) then
     vim.api.nvim_win_set_cursor(s.twin, { vim.api.nvim_buf_line_count(s.tbuf), 0 })
   end
 end
 
+---Move the chat cursor to the last user message.
+---@return boolean found
+function M.goto_last_user()
+  if not buf_ok(s.tbuf) or not win_ok(s.twin) then
+    return false
+  end
+  local lines = vim.api.nvim_buf_get_lines(s.tbuf, 0, -1, false)
+  local target
+  for i = #s.user_lines, 1, -1 do
+    local line = s.user_lines[i]
+    if line <= #lines and lines[line]:match("^## You") then
+      target = line
+      break
+    end
+  end
+  if not target then
+    for i = #lines, 1, -1 do
+      if lines[i]:match("^## You") then
+        target = i
+        break
+      end
+    end
+  end
+  if not target then
+    return false
+  end
+  vim.api.nvim_win_call(s.twin, function()
+    vim.api.nvim_win_set_cursor(0, { target, 0 })
+    vim.cmd("normal! zz")
+  end)
+  return true
+end
+
 ---@param lines string[]
-function M.append(lines)
+---@param opts? {user:boolean}
+function M.append(lines, opts)
   if not buf_ok(s.tbuf) then
     return
   end
+  local stick = at_bottom()
   local n = vim.api.nvim_buf_line_count(s.tbuf)
   local empty = n == 1 and vim.api.nvim_buf_get_lines(s.tbuf, 0, 1, false)[1] == ""
   local at = empty and 0 or n
@@ -130,7 +193,12 @@ function M.append(lines)
   if s.working_idx then
     s.working_idx = s.working_idx + #lines
   end
-  M.scroll()
+  if opts and opts.user then
+    table.insert(s.user_lines, at + 1)
+  end
+  if stick then
+    M.scroll()
+  end
 end
 
 ---Show or replace the live status line at the end of the chat.
@@ -139,6 +207,7 @@ function M.set_working(text)
   if not buf_ok(s.tbuf) then
     return
   end
+  local stick = at_bottom()
   local lines = vim.api.nvim_buf_get_lines(s.tbuf, 0, -1, false)
   if s.working_idx and lines[s.working_idx] then
     vim.api.nvim_buf_set_lines(s.tbuf, s.working_idx - 1, s.working_idx, false, { text })
@@ -146,7 +215,9 @@ function M.set_working(text)
     vim.api.nvim_buf_set_lines(s.tbuf, -1, -1, false, { text })
     s.working_idx = vim.api.nvim_buf_line_count(s.tbuf)
   end
-  M.scroll()
+  if stick then
+    M.scroll()
+  end
 end
 
 function M.clear_working()
@@ -164,7 +235,7 @@ end
 function M.set_status(text)
   s.status = text
   if win_ok(s.twin) then
-    vim.wo[s.twin].winbar = text
+    vim.wo[s.twin].winbar = text .. "  <C-j> input"
   end
 end
 
