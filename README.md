@@ -51,9 +51,9 @@ lazy.nvim:
 
 The panel is two windows: the chat transcript on top, the prompt input at the bottom. They are two buffers, because the transcript is a read-only log and the input is an editable prompt; each window keeps its own cursor, so both positions survive while you move between them.
 
-In the input window: any printable key types (the leader key stays a leader key), `<CR>` (normal) or `<C-s>` (insert) sends, `<C-c>` cancels, `<C-k>` goes to the chat. `<C-k>` works while you are typing: the caret position is remembered and `<C-j>` brings you back to it, still in insert mode. Close the panel with `<leader>aa`.
+The input behaves like a text field: any printable key types and drops you into insert mode. The leader key is left alone, so `<leader>…` still works there. In insert mode `<CR>` starts a new line and `<C-s>` sends; in normal mode `<CR>` sends. `<C-c>` cancels the running request.
 
-In the chat window: `<C-j>` goes to the input, `<C-c>` cancels, `q` closes.
+`<C-k>` goes from the input to the chat and works while you are typing: the caret is remembered, and `<C-j>` in the chat brings you back to it, still in insert mode. In the chat, `q` closes the panel; from the input, close it with `<leader>aa`.
 
 The panel opens in normal mode with the caret in the input. Scrolling up while a request is streaming keeps your position; the view only auto-follows new output when it is already at the bottom.
 
